@@ -1,25 +1,37 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:youtube_bloc/logic/counter_cubit.dart';
+import 'package:youtube_bloc/logic/internet_cubit.dart';
+
+import 'constantas/enums.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp(connectivityy: Connectivity(),));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  late Connectivity connectivityy;
+
+  MyApp({super.key, required this.connectivityy});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => CounterCubit(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<InternetCubit>(
+            create: (context) => InternetCubit(connectivity: connectivityy)),
+        BlocProvider<CounterCubit>(create: (context) =>
+            CounterCubit(),
+        )
+      ],
       child: MaterialApp(
         title: 'Flutter Demo',
         theme: ThemeData(
           primarySwatch: Colors.blue,
         ),
-        home: const MyHomePage(title: 'Flutter Demo Home Page'),
+        home: MyHomePage(title: 'Flutter Demo Home Page'),
       ),
     );
   }
@@ -37,34 +49,38 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: BlocListener<CounterCubit, CounterState>(
-        listener: (context, state) {
-              if(state.isIncremented==true){
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Incremented'),
-                  duration: Duration(milliseconds: 300),
-                )
-                );
-              }else if(state.isIncremented==false){
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Decremented'),
-                  duration: Duration(milliseconds: 300),
-                )
-                );
-              }
-        },
-        child: Center(
+    return BlocListener<InternetCubit, InternetState>(
+      listener: (context, state) {
+          if (state is InternetConnected &&
+              state.connectionType == ConnectionType.Wifi) {
+           context.read<CounterCubit>().Increment();
+          } else if (state is InternetConnected &&
+              state.connectionType == ConnectionType.Mobile) {
+            context.read<CounterCubit>().Decrement();
+          }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
+        ),
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              const Text(
-                'You have pushed the button this many times:',
+              BlocBuilder<InternetCubit, InternetState>(
+                builder: (context, state) {
+                  if (state is InternetConnected &&
+                      state.connectionType == ConnectionType.Wifi) {
+                    return Text('Wifi');
+                  } else if (state is InternetConnected &&
+                      state.connectionType == ConnectionType.Mobile) {
+                    return Text('Mobile');
+                  } else {
+                    return Text('Disconnected');
+                  }
+                },
               ),
-              BlocBuilder<CounterCubit, CounterState>(
+              BlocConsumer<CounterCubit, CounterState>(
                 builder: (context, state) {
                   return Text(
                     state.counterValue.toString(),
@@ -73,6 +89,22 @@ class _MyHomePageState extends State<MyHomePage> {
                         .textTheme
                         .headlineMedium,
                   );
+                },
+
+                listener: (context, state) {
+                  if (state.isIncremented == true) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Incremented'),
+                      duration: Duration(milliseconds: 300),
+                    )
+                    );
+                  } else if (state.isIncremented == false) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Decremented'),
+                      duration: Duration(milliseconds: 300),
+                    )
+                    );
+                  }
                 },
               ),
 
